@@ -17,10 +17,11 @@ exports.handler = async (event) => {
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: 'claude-sonnet-4-5',
         max_tokens: 1024,
         system: systemPrompt,
         messages: messages
@@ -28,6 +29,16 @@ exports.handler = async (event) => {
     });
 
     const data = await response.json();
+    console.log('Anthropic response:', JSON.stringify(data).substring(0, 200));
+
+    if (data.error) {
+      console.error('Anthropic error:', data.error);
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ error: data.error.message, reply: 'API Error: ' + data.error.message })
+      };
+    }
 
     return {
       statusCode: 200,
