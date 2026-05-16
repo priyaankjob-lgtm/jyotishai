@@ -574,7 +574,65 @@ function buildSystem(name, data) {
   const lagna = data.kundli?.data?.ascendant?.rasi?.name || data.kundli?.data?.ascendant?.name || 'Unknown';
   const moonSign = planets.find(p=>p.name==='Moon')?.rasi?.name || 'Unknown';
   const sunSign = planets.find(p=>p.name==='Sun')?.rasi?.name || 'Unknown';
-  const lagnaLord = planets.find(p=>p.name==='Moon')?.rasi?.lord?.name || '';
+
+  // Birth Details — Nakshatra, Tithi etc.
+  const birth = data.birth?.data || {};
+  const nakshatra = birth.nakshatra?.name || birth.birth_nakshatra?.name || 'Unknown';
+  const nakshatraPada = birth.nakshatra?.pada || birth.birth_nakshatra?.pada || '';
+  const nakshatraLord = birth.nakshatra?.lord?.name || birth.birth_nakshatra?.lord?.name || '';
+  const tithi = birth.tithi?.name || '';
+  const rashi = birth.rashi?.name || moonSign;
+
+  // Dasha — current Mahadasha & Antardasha
+  const dashaData = data.dasha?.data || {};
+  let currentDasha = 'Unknown';
+  let currentAntardasha = 'Unknown';
+  let dashaEnd = '';
+  let dashaStr = '';
+
+  if (dashaData.dasha_periods || dashaData.mahadasha) {
+    const periods = dashaData.dasha_periods || dashaData.mahadasha || [];
+    const now = new Date();
+    const current = periods.find(d => {
+      const start = new Date(d.start || d.from);
+      const end = new Date(d.end || d.to);
+      return now >= start && now <= end;
+    });
+    if (current) {
+      currentDasha = current.planet?.name || current.name || 'Unknown';
+      dashaEnd = current.end || current.to || '';
+      // Antardasha
+      const antars = current.antardashas || current.antardasha || [];
+      const currentAntar = antars.find(a => {
+        const start = new Date(a.start || a.from);
+        const end = new Date(a.end || a.to);
+        return now >= start && now <= end;
+      });
+      if (currentAntar) currentAntardasha = currentAntar.planet?.name || currentAntar.name || 'Unknown';
+    }
+    // Next 3 dashas
+    dashaStr = periods.slice(0, 6).map(d =>
+      `  ${d.planet?.name||d.name}: ${d.start||d.from} to ${d.end||d.to}`
+    ).join('\n');
+  }
+
+  // Yogas
+  const yogaData = data.yoga?.data || {};
+  const yogas = yogaData.yoga_details || yogaData.yogas || [];
+  const activeYogas = yogas.filter(y => y.has_yoga || y.present || y.result)
+    .map(y => `  • ${y.name}: ${y.description || y.result || ''}`)
+    .slice(0, 8).join('\n') || '  No major yogas detected';
+
+  // Mangal Dosha
+  const mangalData = data.mangal?.data || {};
+  const hasMangal = mangalData.has_mangal_dosha || mangalData.mangal_dosha || false;
+  const mangalDesc = mangalData.description || (hasMangal ? 'Mangal Dosha present' : 'No Mangal Dosha');
+
+  // Kaal Sarp Dosha
+  const kaalsarpData = data.kaalsarp?.data || {};
+  const hasKaalsarp = kaalsarpData.has_kaal_sarp_dosha || kaalsarpData.kaal_sarp_dosha || false;
+  const kaalsarpType = kaalsarpData.type || kaalsarpData.name || '';
+  const kaalsarpDesc = hasKaalsarp ? `Kaal Sarp Dosha present — Type: ${kaalsarpType}` : 'No Kaal Sarp Dosha';
 
   return `You are an expert Vedic (Jyotish) astrologer on JyotishAI. Respond in ${lang==='hi'?'Hindi mixed with English (Hinglish), using Devanagari script for Hindi words':'fluent English with Sanskrit/Vedic terms'}.
 
@@ -583,9 +641,26 @@ Name: ${name}
 Lagna (Ascendant): ${lagna}
 Surya Rashi (Sun Sign): ${sunSign}
 Chandra Rashi (Moon Sign): ${moonSign}
+Janma Nakshatra: ${nakshatra} (Pada ${nakshatraPada}, Lord: ${nakshatraLord})
+Tithi: ${tithi}
 
 PLANETARY POSITIONS (Graha Sthiti):
 ${planetStr}
+
+═══ VIMSHOTTARI DASHA ═══
+Current Mahadasha: ${currentDasha}
+Current Antardasha: ${currentAntardasha}
+Mahadasha ends: ${dashaEnd}
+
+All Dasha Periods:
+${dashaStr || '  Data loading...'}
+
+═══ YOGAS IN KUNDLI ═══
+${activeYogas}
+
+═══ DOSHAS ═══
+Mangal Dosha: ${mangalDesc}
+Kaal Sarp Dosha: ${kaalsarpDesc}
 
 ═══ VEDIC RULES TO APPLY ═══
 • Lagna = personality, body, overall life
@@ -594,12 +669,10 @@ ${planetStr}
 • Planet in exaltation (uchcha) = maximum power
 • Planet in debilitation (neecha) = weakened
 • Retrograde (Vakri) = intense, karmic, delayed results
+• Nakshatra lord heavily influences mindset & destiny
+• Current Mahadasha planet colors ALL life events right now
 • Rahu in a house obsesses over that house's themes
 • Ketu in a house brings detachment from that house's themes
-• 1st lord in 10th or 10th lord strong = good career
-• 7th lord strong and well-placed = good marriage
-• 5th lord strong = good children, creativity, intelligence
-• Jupiter (Guru) aspects 5th, 7th, 9th from its position
 
 ═══ HOUSE SIGNIFICATIONS ═══
 1: Self, health, personality | 2: Wealth, speech, family
@@ -610,13 +683,14 @@ ${planetStr}
 11: Gains, elder siblings, desires | 12: Losses, foreign travel, spirituality, moksha
 
 ═══ RESPONSE RULES ═══
-1. Give SPECIFIC predictions citing actual planet positions from the chart
-2. Example: "Aapka Guru 5th house mein Karka rashi mein hai — yeh..."
-3. NEVER give generic predictions — always reference the actual chart data
-4. Include ONE practical remedy (mantra/gemstone/charity/fast day)
-5. Keep response 4-6 sentences — powerful and precise
-6. End with a brief uplifting message
-7. Tone: warm, wise, like a trusted family pandit`;
+1. Give SPECIFIC predictions citing actual planet positions, nakshatra, and dasha
+2. ALWAYS mention current Mahadasha and what it means for the person
+3. Example: "Aapki abhi ${currentDasha} Mahadasha chal rahi hai — iska matlab..."
+4. NEVER give generic predictions — always reference the actual chart data
+5. Include ONE practical remedy (mantra/gemstone/charity/fast day)
+6. Keep response 4-6 sentences — powerful and precise
+7. End with a brief uplifting message
+8. Tone: warm, wise, like a trusted family pandit`;
 }
 
 async function sendMsg() {
