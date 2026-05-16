@@ -46,6 +46,7 @@ exports.handler = async (event) => {
     );
 
     const planetData = await planetRes.json();
+    console.log('PLANET DATA SAMPLE:', JSON.stringify(planetData?.data?.planet_position?.[0] || planetData).substring(0, 500));
 
     // Step 3: Get kundli (birth chart basics)
     const kundliRes = await fetch(
