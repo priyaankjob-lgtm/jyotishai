@@ -303,7 +303,7 @@ document.addEventListener('click', (e) => {
 });
 
 // Init
-applyLang('hi');
+
 
 // Stars
 const canvas = document.getElementById('stars-canvas');
@@ -629,6 +629,8 @@ function showTyping() {
 function showError(msg) {
   document.getElementById('error-area').innerHTML = `<div class="error-box">⚠️ ${msg}</div>`;
 }
+  // Init language after all functions defined
+applyLang('hi');
 </script>
 </body>
 </html>
