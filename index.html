@@ -196,6 +196,10 @@
         <div class="lagna-val" id="moon-val" style="font-size:18px;">—</div>
       </div>
     </div>
+    <div class="section-label" id="chart-section-label" style="margin-top:8px;">◈ जन्म कुंडली चार्ट (North Indian)</div>
+    <div style="display:flex;justify-content:center;margin-bottom:32px;">
+      <canvas id="kundli-chart" width="420" height="420" style="border-radius:12px;background:rgba(201,168,76,0.04);border:1px solid rgba(201,168,76,0.18);"></canvas>
+    </div>
     <div class="section-label" id="planet-section-label">☿ ग्रहों की स्थिति (Planetary Positions)</div>
     <div class="planet-grid" id="planet-grid"></div>
     <div class="section-label" id="chat-section-label" style="margin-top:32px;">☽ AI ज्योतिष सलाहकार</div>
@@ -448,9 +452,150 @@ function renderPlanets(data) {
   const moon = planets.find(p=>p.name==='Moon');
   if (lagna) { document.getElementById('lagna-val').textContent=getRashi(lagna.rasi?.name||lagna.name||lagna); document.getElementById('lagna-box').style.display='flex'; }
   if (moon) { document.getElementById('moon-val').textContent=getRashi(moon.rasi?.name||moon.rasi||'—'); }
+
+  // Draw Kundli chart
+  const lagnaHouse = data.kundli?.data?.ascendant?.number || 1;
+  drawKundliChart(planets, lagnaHouse);
 }
 
-// ── AI CHAT ──
+// ── KUNDLI CHART (North Indian Style) ──
+function drawKundliChart(planets, lagnaHouse) {
+  const canvas = document.getElementById('kundli-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = 420, H = 420;
+  ctx.clearRect(0, 0, W, H);
+
+  const gold = '#c9a84c';
+  const goldDim = 'rgba(201,168,76,0.4)';
+  const cream = '#f0e6ce';
+  const creamDim = '#a89878';
+
+  // North Indian house layout - house numbers in fixed positions
+  // Lagna (1st house) is always top-center-left diamond
+  // Houses go clockwise: 1,2,3,4,5,6,7,8,9,10,11,12
+  const housePositions = [
+    // Each house: {cx, cy, label position}
+    {cx: 210, cy: 105},  // H1  - top center
+    {cx: 315, cy: 105},  // H2  - top right
+    {cx: 360, cy: 210},  // H3  - right top
+    {cx: 315, cy: 315},  // H4  - bottom right
+    {cx: 210, cy: 315},  // H5  - bottom center
+    {cx: 105, cy: 315},  // H6  - bottom left
+    {cx: 60,  cy: 210},  // H7  - left bottom
+    {cx: 105, cy: 105},  // H8  - left top
+    {cx: 210, cy: 60},   // H9  - top far
+    {cx: 315, cy: 60},   // H10 - top far right (unused - adjust)
+    {cx: 360, cy: 60},   // H11
+    {cx: 105, cy: 60},   // H12
+  ];
+
+  // Draw outer square
+  ctx.strokeStyle = gold;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(10, 10, W-20, H-20);
+
+  // Draw inner square (rotated 45deg = diamond)
+  ctx.beginPath();
+  ctx.moveTo(W/2, 10);
+  ctx.lineTo(W-10, H/2);
+  ctx.lineTo(W/2, H-10);
+  ctx.lineTo(10, H/2);
+  ctx.closePath();
+  ctx.strokeStyle = gold;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Draw diagonal lines (corners)
+  ctx.strokeStyle = goldDim;
+  ctx.lineWidth = 1;
+  // Top-left triangle
+  ctx.beginPath(); ctx.moveTo(10,10); ctx.lineTo(W/2,H/2); ctx.stroke();
+  // Top-right triangle
+  ctx.beginPath(); ctx.moveTo(W-10,10); ctx.lineTo(W/2,H/2); ctx.stroke();
+  // Bottom-right triangle
+  ctx.beginPath(); ctx.moveTo(W-10,H-10); ctx.lineTo(W/2,H/2); ctx.stroke();
+  // Bottom-left triangle
+  ctx.beginPath(); ctx.moveTo(10,H-10); ctx.lineTo(W/2,H/2); ctx.stroke();
+
+  // North Indian house regions (12 houses, fixed positions):
+  // Top row: H12, H1, H2
+  // Left col: H11, H8
+  // Right col: H3, H6
+  // Bottom row: H10, H7, H4  (wait - corrected layout below)
+  // Center: H9, H5
+
+  // Standard North Indian layout house centers:
+  const houseCenters = {
+    1:  {x: 210, y: 75},    // top center triangle
+    2:  {x: 335, y: 75},    // top right corner
+    3:  {x: 355, y: 210},   // right center triangle (wait- it's a box)
+    4:  {x: 335, y: 345},   // bottom right corner
+    5:  {x: 210, y: 345},   // bottom center
+    6:  {x: 85,  y: 345},   // bottom left corner
+    7:  {x: 65,  y: 210},   // left center
+    8:  {x: 85,  y: 75},    // top left corner
+    9:  {x: 210, y: 175},   // inner top (center diamond top)
+    10: {x: 340, y: 210},   // inner right
+    11: {x: 210, y: 245},   // inner bottom
+    12: {x: 80,  y: 210},   // inner left
+  };
+
+  // Build house → planets mapping
+  const housePlanets = {};
+  for (let i = 1; i <= 12; i++) housePlanets[i] = [];
+
+  planets.forEach(p => {
+    const house = p.position || 1;
+    if (housePlanets[house]) {
+      const shortName = {
+        'Sun':'Su','Moon':'Mo','Mars':'Ma','Mercury':'Me',
+        'Jupiter':'Ju','Venus':'Ve','Saturn':'Sa','Rahu':'Ra','Ketu':'Ke'
+      }[p.name] || p.name.substring(0,2);
+      housePlanets[house].push(shortName + (p.is_retrograde?'(R)':''));
+    }
+  });
+
+  // Draw house numbers and planets
+  Object.entries(houseCenters).forEach(([houseNum, pos]) => {
+    const h = parseInt(houseNum);
+    const isLagna = h === 1;
+
+    // House number
+    ctx.font = isLagna ? 'bold 11px JetBrains Mono' : '10px JetBrains Mono';
+    ctx.fillStyle = isLagna ? gold : goldDim;
+    ctx.textAlign = 'center';
+    ctx.fillText(h.toString(), pos.x, pos.y - 6);
+
+    // Lagna marker
+    if (isLagna) {
+      ctx.font = 'bold 10px JetBrains Mono';
+      ctx.fillStyle = gold;
+      ctx.fillText('लग्न', pos.x, pos.y + 6);
+    }
+
+    // Planet names
+    const pList = housePlanets[h] || [];
+    ctx.font = 'bold 11px Crimson Pro';
+    ctx.fillStyle = cream;
+    pList.forEach((pname, i) => {
+      ctx.fillText(pname, pos.x, pos.y + 18 + (i * 14));
+    });
+  });
+
+  // Rashi name at lagna
+  const lagnaRashi = planets.length > 0 ?
+    (planets[0]?.rasi?.name || '') : '';
+
+  // Title in center
+  ctx.font = '10px JetBrains Mono';
+  ctx.fillStyle = goldDim;
+  ctx.textAlign = 'center';
+  ctx.fillText('☽ कुंडली', W/2, H/2 - 6);
+  ctx.fillText('KUNDLI', W/2, H/2 + 8);
+}
+
+
 async function sendGreeting(name, data) {
   const greeting = T[lang].greeting(name);
   addMsg('ai', greeting, 'Jyotish Advisor');
@@ -459,9 +604,53 @@ async function sendGreeting(name, data) {
 
 function buildSystem(name, data) {
   const planets = data.planets?.data?.planet_position || data.kundli?.data?.planet_position || [];
-  let planetStr = planets.map(p=>`${p.name}: ${p.rasi?.name||p.rasi} ${p.degree?'('+parseFloat(p.degree).toFixed(1)+'°)':''}${p.is_retrograde?' Vakri':''}`).join('\n');
+  const planetStr = planets.map(p=>`  ${p.name}: ${p.rasi?.name||'Unknown'} | ${p.degree?parseFloat(p.degree).toFixed(2)+'°':''} | House ${p.position||'?'}${p.is_retrograde?' | VAKRI (Retrograde)':''} | Lord: ${p.rasi?.lord?.name||''}`).join('\n');
   const lagna = data.kundli?.data?.ascendant?.rasi?.name || data.kundli?.data?.ascendant?.name || 'Unknown';
-  return `Aap JyotishAI ke Jyotish Advisor hain — ek expert Vedic astrologer jo Hinglish aur Hindi mein baat karte hain, jaise ek vishwasaniya parivaarik pandit.\n\nJaataka ka naam: ${name}\nLagna: ${lagna}\n\nGraha Sthiti:\n${planetStr||'Loading'}\n\nNirdesh:\n- Grahas ko Sanskrit naam se bulayein\n- ${lang==='hi'?'Hindi ya Hinglish mein baat karein':'English mein baat karein'} — warm aur respectful\n- Actual chart data ke basis pe specific insights dein\n- Practical upaay bhi batayein jab zaroorat ho\n- 3-5 sentences ka concise jawab dein\n- Ant mein ek choti si prerana zaroor dein`;
+  const moonSign = planets.find(p=>p.name==='Moon')?.rasi?.name || 'Unknown';
+  const sunSign = planets.find(p=>p.name==='Sun')?.rasi?.name || 'Unknown';
+  const lagnaLord = planets.find(p=>p.name==='Moon')?.rasi?.lord?.name || '';
+
+  return `You are an expert Vedic (Jyotish) astrologer on JyotishAI. Respond in ${lang==='hi'?'Hindi mixed with English (Hinglish), using Devanagari script for Hindi words':'fluent English with Sanskrit/Vedic terms'}.
+
+═══ BIRTH CHART (Lahiri Ayanamsa, Sidereal) ═══
+Name: ${name}
+Lagna (Ascendant): ${lagna}
+Surya Rashi (Sun Sign): ${sunSign}
+Chandra Rashi (Moon Sign): ${moonSign}
+
+PLANETARY POSITIONS (Graha Sthiti):
+${planetStr}
+
+═══ VEDIC RULES TO APPLY ═══
+• Lagna = personality, body, overall life
+• Each planet's house position determines its results
+• Planet in own sign (swagrahi) = strong & beneficial
+• Planet in exaltation (uchcha) = maximum power
+• Planet in debilitation (neecha) = weakened
+• Retrograde (Vakri) = intense, karmic, delayed results
+• Rahu in a house obsesses over that house's themes
+• Ketu in a house brings detachment from that house's themes
+• 1st lord in 10th or 10th lord strong = good career
+• 7th lord strong and well-placed = good marriage
+• 5th lord strong = good children, creativity, intelligence
+• Jupiter (Guru) aspects 5th, 7th, 9th from its position
+
+═══ HOUSE SIGNIFICATIONS ═══
+1: Self, health, personality | 2: Wealth, speech, family
+3: Courage, siblings, communication | 4: Home, mother, comforts
+5: Intelligence, children, past karma | 6: Enemies, health challenges, service
+7: Marriage, partnerships, business | 8: Longevity, occult, sudden events
+9: Luck, dharma, father, guru | 10: Career, reputation, authority
+11: Gains, elder siblings, desires | 12: Losses, foreign travel, spirituality, moksha
+
+═══ RESPONSE RULES ═══
+1. Give SPECIFIC predictions citing actual planet positions from the chart
+2. Example: "Aapka Guru 5th house mein Karka rashi mein hai — yeh..."
+3. NEVER give generic predictions — always reference the actual chart data
+4. Include ONE practical remedy (mantra/gemstone/charity/fast day)
+5. Keep response 4-6 sentences — powerful and precise
+6. End with a brief uplifting message
+7. Tone: warm, wise, like a trusted family pandit`;
 }
 
 async function sendMsg() {
