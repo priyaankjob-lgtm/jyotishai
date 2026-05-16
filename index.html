@@ -467,132 +467,98 @@ function drawKundliChart(planets, lagnaHouse) {
   ctx.clearRect(0, 0, W, H);
 
   const gold = '#c9a84c';
-  const goldDim = 'rgba(201,168,76,0.4)';
+  const goldDim = 'rgba(201,168,76,0.35)';
   const cream = '#f0e6ce';
-  const creamDim = '#a89878';
 
-  // North Indian house layout - house numbers in fixed positions
-  // Lagna (1st house) is always top-center-left diamond
-  // Houses go clockwise: 1,2,3,4,5,6,7,8,9,10,11,12
-  const housePositions = [
-    // Each house: {cx, cy, label position}
-    {cx: 210, cy: 105},  // H1  - top center
-    {cx: 315, cy: 105},  // H2  - top right
-    {cx: 360, cy: 210},  // H3  - right top
-    {cx: 315, cy: 315},  // H4  - bottom right
-    {cx: 210, cy: 315},  // H5  - bottom center
-    {cx: 105, cy: 315},  // H6  - bottom left
-    {cx: 60,  cy: 210},  // H7  - left bottom
-    {cx: 105, cy: 105},  // H8  - left top
-    {cx: 210, cy: 60},   // H9  - top far
-    {cx: 315, cy: 60},   // H10 - top far right (unused - adjust)
-    {cx: 360, cy: 60},   // H11
-    {cx: 105, cy: 60},   // H12
-  ];
-
-  // Draw outer square
+  // Outer square
   ctx.strokeStyle = gold;
   ctx.lineWidth = 2;
   ctx.strokeRect(10, 10, W-20, H-20);
 
-  // Draw inner square (rotated 45deg = diamond)
+  // Inner diamond
   ctx.beginPath();
-  ctx.moveTo(W/2, 10);
-  ctx.lineTo(W-10, H/2);
-  ctx.lineTo(W/2, H-10);
-  ctx.lineTo(10, H/2);
+  ctx.moveTo(W/2, 10); ctx.lineTo(W-10, H/2);
+  ctx.lineTo(W/2, H-10); ctx.lineTo(10, H/2);
   ctx.closePath();
-  ctx.strokeStyle = gold;
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
+  ctx.strokeStyle = gold; ctx.lineWidth = 1.5; ctx.stroke();
 
-  // Draw diagonal lines (corners)
-  ctx.strokeStyle = goldDim;
-  ctx.lineWidth = 1;
-  // Top-left triangle
-  ctx.beginPath(); ctx.moveTo(10,10); ctx.lineTo(W/2,H/2); ctx.stroke();
-  // Top-right triangle
-  ctx.beginPath(); ctx.moveTo(W-10,10); ctx.lineTo(W/2,H/2); ctx.stroke();
-  // Bottom-right triangle
-  ctx.beginPath(); ctx.moveTo(W-10,H-10); ctx.lineTo(W/2,H/2); ctx.stroke();
-  // Bottom-left triangle
-  ctx.beginPath(); ctx.moveTo(10,H-10); ctx.lineTo(W/2,H/2); ctx.stroke();
+  // Corner diagonals
+  ctx.strokeStyle = goldDim; ctx.lineWidth = 1;
+  [[10,10,W/2,H/2],[W-10,10,W/2,H/2],[W-10,H-10,W/2,H/2],[10,H-10,W/2,H/2]].forEach(([x1,y1,x2,y2])=>{
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  });
 
-  // North Indian house regions (12 houses, fixed positions):
-  // Top row: H12, H1, H2
-  // Left col: H11, H8
-  // Right col: H3, H6
-  // Bottom row: H10, H7, H4  (wait - corrected layout below)
-  // Center: H9, H5
-
-  // Standard North Indian layout house centers:
+  // CORRECT North Indian Kundli house centers
   const houseCenters = {
-    1:  {x: 210, y: 75},    // top center triangle
-    2:  {x: 335, y: 75},    // top right corner
-    3:  {x: 355, y: 210},   // right center triangle (wait- it's a box)
-    4:  {x: 335, y: 345},   // bottom right corner
-    5:  {x: 210, y: 345},   // bottom center
-    6:  {x: 85,  y: 345},   // bottom left corner
-    7:  {x: 65,  y: 210},   // left center
-    8:  {x: 85,  y: 75},    // top left corner
-    9:  {x: 210, y: 175},   // inner top (center diamond top)
-    10: {x: 340, y: 210},   // inner right
-    11: {x: 210, y: 245},   // inner bottom
-    12: {x: 80,  y: 210},   // inner left
+    1:  {x: 210, y: 68},    // top triangle (Lagna)
+    2:  {x: 345, y: 72},    // top-right corner box
+    3:  {x: 368, y: 210},   // right triangle
+    4:  {x: 345, y: 348},   // bottom-right corner box
+    5:  {x: 210, y: 355},   // bottom triangle
+    6:  {x: 75,  y: 348},   // bottom-left corner box
+    7:  {x: 52,  y: 210},   // left triangle
+    8:  {x: 75,  y: 72},    // top-left corner box
+    9:  {x: 295, y: 168},   // inner top-right
+    10: {x: 295, y: 252},   // inner bottom-right
+    11: {x: 125, y: 252},   // inner bottom-left
+    12: {x: 125, y: 168},   // inner top-left
   };
 
-  // Build house → planets mapping
+  // Short planet names
+  const shortNames = {
+    'Sun':'Su','Moon':'Mo','Mars':'Ma','Mercury':'Me',
+    'Jupiter':'Ju','Venus':'Ve','Saturn':'Sa','Rahu':'Ra','Ketu':'Ke'
+  };
+
+  // Build house → planets mapping (exclude Ascendant/non-planets)
   const housePlanets = {};
   for (let i = 1; i <= 12; i++) housePlanets[i] = [];
 
   planets.forEach(p => {
-    const house = p.position || 1;
-    if (housePlanets[house]) {
-      const shortName = {
-        'Sun':'Su','Moon':'Mo','Mars':'Ma','Mercury':'Me',
-        'Jupiter':'Ju','Venus':'Ve','Saturn':'Sa','Rahu':'Ra','Ketu':'Ke'
-      }[p.name] || p.name.substring(0,2);
-      housePlanets[house].push(shortName + (p.is_retrograde?'(R)':''));
+    if (!shortNames[p.name]) return; // skip Ascendant etc.
+    const house = parseInt(p.position) || 0;
+    if (house >= 1 && house <= 12) {
+      housePlanets[house].push(shortNames[p.name] + (p.is_retrograde ? '℞' : ''));
     }
   });
 
-  // Draw house numbers and planets
-  Object.entries(houseCenters).forEach(([houseNum, pos]) => {
-    const h = parseInt(houseNum);
+  // Draw each house
+  Object.entries(houseCenters).forEach(([hNum, pos]) => {
+    const h = parseInt(hNum);
     const isLagna = h === 1;
-
-    // House number
-    ctx.font = isLagna ? 'bold 11px JetBrains Mono' : '10px JetBrains Mono';
-    ctx.fillStyle = isLagna ? gold : goldDim;
+    const pList = housePlanets[h] || [];
     ctx.textAlign = 'center';
-    ctx.fillText(h.toString(), pos.x, pos.y - 6);
 
-    // Lagna marker
     if (isLagna) {
-      ctx.font = 'bold 10px JetBrains Mono';
+      // Gold highlight for lagna house
+      ctx.font = 'bold 13px "JetBrains Mono"';
       ctx.fillStyle = gold;
-      ctx.fillText('लग्न', pos.x, pos.y + 6);
+      ctx.fillText(h, pos.x, pos.y - 10);
+      ctx.font = '9px "JetBrains Mono"';
+      ctx.fillStyle = gold;
+      ctx.fillText('लग्न', pos.x, pos.y + 2);
+    } else {
+      ctx.font = '10px "JetBrains Mono"';
+      ctx.fillStyle = goldDim;
+      ctx.fillText(h, pos.x, pos.y - 8);
     }
 
     // Planet names
-    const pList = housePlanets[h] || [];
-    ctx.font = 'bold 11px Crimson Pro';
-    ctx.fillStyle = cream;
-    pList.forEach((pname, i) => {
-      ctx.fillText(pname, pos.x, pos.y + 18 + (i * 14));
-    });
+    if (pList.length > 0) {
+      ctx.font = 'bold 11px serif';
+      ctx.fillStyle = '#f0e6ce';
+      pList.forEach((pname, i) => {
+        ctx.fillText(pname, pos.x, pos.y + 10 + (i * 14));
+      });
+    }
   });
 
-  // Rashi name at lagna
-  const lagnaRashi = planets.length > 0 ?
-    (planets[0]?.rasi?.name || '') : '';
-
-  // Title in center
-  ctx.font = '10px JetBrains Mono';
-  ctx.fillStyle = goldDim;
+  // Center label
+  ctx.font = '10px "JetBrains Mono"';
+  ctx.fillStyle = 'rgba(201,168,76,0.4)';
   ctx.textAlign = 'center';
-  ctx.fillText('☽ कुंडली', W/2, H/2 - 6);
-  ctx.fillText('KUNDLI', W/2, H/2 + 8);
+  ctx.fillText('☽', W/2, H/2 - 8);
+  ctx.fillText('कुंडली', W/2, H/2 + 6);
 }
 
 
