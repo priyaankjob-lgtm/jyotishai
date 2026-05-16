@@ -1,17 +1,13 @@
-exports.handler = async (event) => {
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Content-Type': 'application/json'
-  };
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' };
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
 
   try {
-    const body = JSON.parse(event.body || '{}');
-    const { dob, tob, lat, lon } = body;
+    const { dob, tob, lat, lon } = req.body;
 
     const CLIENT_ID = process.env.PROKERALA_CLIENT_ID;
     const CLIENT_SECRET = process.env.PROKERALA_CLIENT_SECRET;
@@ -24,7 +20,10 @@ exports.handler = async (event) => {
     });
     const tokenData = await tokenRes.json();
     const token = tokenData.access_token;
-    if (!token) return { statusCode: 500, headers, body: JSON.stringify({ error: 'Token failed' }) };
+
+    if (!token) {
+      return res.status(500).json({ error: 'Token failed', details: tokenData });
+    }
 
     const datetime = `${dob}T${tob}:00+05:30`;
     const coordinates = `${lat},${lon}`;
@@ -46,20 +45,14 @@ exports.handler = async (event) => {
       pR.json(), bR.json(), dR.json(), yR.json(), mR.json(), kR.json()
     ]);
 
-    console.log('BIRTH DATA:', JSON.stringify(birth?.data).substring(0, 400));
-    console.log('DASHA DATA:', JSON.stringify(dasha?.data).substring(0, 400));
-    console.log('YOGA DATA:', JSON.stringify(yoga?.data).substring(0, 400));
-    console.log('MANGAL DATA:', JSON.stringify(mangal?.data).substring(0, 200));
-    console.log('KAALSARP DATA:', JSON.stringify(kaalsarp?.data).substring(0, 200));
+    console.log('BIRTH:', JSON.stringify(birth?.data).substring(0, 300));
+    console.log('DASHA:', JSON.stringify(dasha?.data).substring(0, 300));
+    console.log('YOGA:', JSON.stringify(yoga?.data).substring(0, 300));
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ planets, birth, dasha, yoga, mangal, kaalsarp })
-    };
+    return res.status(200).json({ planets, birth, dasha, yoga, mangal, kaalsarp });
 
   } catch (err) {
     console.error('Error:', err.message);
-    return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
+    return res.status(500).json({ error: err.message });
   }
-};
+}
