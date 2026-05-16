@@ -119,6 +119,11 @@
   footer { text-align:center; padding:40px 0; border-top:1px solid var(--glass-border); color:var(--cream-dim); font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.08em; }
   footer strong { color:var(--gold); }
 
+  .lang-toggle { display:flex; gap:6px; }
+  .lang-btn { background:transparent; border:1px solid var(--glass-border); color:var(--cream-dim); padding:5px 14px; border-radius:100px; font-family:'JetBrains Mono',monospace; font-size:12px; cursor:pointer; transition:all .2s; }
+  .lang-btn:hover { border-color:var(--gold); color:var(--gold); }
+  .lang-active { background:rgba(201,168,76,0.15) !important; border-color:var(--gold) !important; color:var(--gold) !important; }
+
   @media(max-width:700px) { .form-grid{grid-template-columns:1fr} .feat-grid{grid-template-columns:1fr} .form-card{padding:28px 20px} nav ul{display:none} }
 </style>
 </head>
@@ -152,6 +157,10 @@
       <li><a href="#">Panchang</a></li>
       <li><a href="#">Compatibility</a></li>
     </ul>
+    <div class="lang-toggle">
+      <button id="lang-hi" class="lang-btn lang-active" onclick="applyLang('hi')">हिंदी</button>
+      <button id="lang-en" class="lang-btn" onclick="applyLang('en')">English</button>
+    </div>
   </nav>
 
   <section class="hero">
@@ -176,7 +185,7 @@
         <input type="time" id="tob" />
       </div>
       <div class="field form-full" style="position:relative;">
-        <label>Janam Sthan</label>
+        <label for="city" id="lbl-city">Janam Sthan</label>
         <input type="text" id="city" placeholder="Jaise: Delhi, Ghaziabad, Mumbai..." autocomplete="off" oninput="searchCity(this.value)" />
         <div id="city-suggestions" style="position:absolute;top:100%;left:0;right:0;background:#1a1410;border:1px solid var(--glass-border);border-radius:8px;z-index:100;display:none;max-height:200px;overflow-y:auto;"></div>
       </div>
@@ -189,7 +198,7 @@
         <input type="number" id="lon" placeholder="Auto-fill hoga..." step="0.0001" readonly style="opacity:0.7;" />
       </div>
     </div>
-    <p style="font-size:13px;color:var(--cream-dim);margin-bottom:16px;font-family:'JetBrains Mono',monospace;">
+    <p id="tip-text" style="font-size:13px;color:var(--cream-dim);margin-bottom:16px;font-family:'JetBrains Mono',monospace;">
       💡 City ka naam type karein — coordinates automatically fill ho jaayenge!
     </p>
     <button class="btn-reveal" id="btn-generate">
@@ -202,19 +211,19 @@
 
     <div class="lagna-box" id="lagna-box" style="display:none;">
       <div>
-        <div class="lagna-label">Aapka Lagna (Ascendant)</div>
+        <div class="lagna-label" id="lagna-label-text">Aapka Lagna (Ascendant)</div>
         <div class="lagna-val" id="lagna-val">—</div>
       </div>
       <div style="margin-left:auto;text-align:right;">
-        <div class="lagna-label">Chandra Rashi</div>
+        <div class="lagna-label" id="moon-label-text">Chandra Rashi</div>
         <div class="lagna-val" id="moon-val" style="font-size:18px;">—</div>
       </div>
     </div>
 
-    <div class="section-label">☿ Grahon ki Sthiti (Planetary Positions)</div>
+    <div class="section-label" id="planet-section-label">☿ Grahon ki Sthiti (Planetary Positions)</div>
     <div class="planet-grid" id="planet-grid"></div>
 
-    <div class="section-label" style="margin-top:32px;">☽ AI Jyotish Salahkaar</div>
+    <div class="section-label" id="chat-section-label" style="margin-top:32px;">☽ AI Jyotish Salahkaar</div>
     <div class="chat-card">
       <div class="chat-header">
         <div class="chat-av">🔮</div>
@@ -293,6 +302,9 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// Init
+applyLang('hi');
+
 // Stars
 const canvas = document.getElementById('stars-canvas');
 const ctx = canvas.getContext('2d');
@@ -303,13 +315,120 @@ function drawStars(t) { ctx.clearRect(0,0,canvas.width,canvas.height); stars.for
 resize(); initStars(); requestAnimationFrame(drawStars);
 window.addEventListener('resize',()=>{resize();initStars();});
 
+// Language toggle
+let currentLang = 'hi';
+const translations = {
+  hi: {
+    badge: '✦ Vedic Intelligence — AI Powered',
+    h1line1: 'Decode Your',
+    h1line2: 'Cosmic Blueprint',
+    subtitle: '5,000 saal ki Jyotish parampara — AI ki precision ke saath. Aapke sitare bol rahe hain.',
+    formTitle: '✦ Apni Janam Kundli Banayein',
+    lblName: 'Poora Naam', lblDob: 'Janam Tithi', lblTime: 'Janam Samay',
+    lblCity: 'Janam Sthan', cityPlaceholder: 'Jaise: Delhi, Ghaziabad, Mumbai...',
+    btnGenerate: '☽ Kundli Prapt Karein', btnGenerating: '⟳ Grahon ki sthiti dekhi ja rahi hai...',
+    planetSection: '☿ Grahon ki Sthiti (Planetary Positions)',
+    lagnaLabel: 'Aapka Lagna (Ascendant)', moonLabel: 'Chandra Rashi',
+    chatSection: '☽ AI Jyotish Salahkaar',
+    chatSubtitle: 'Claude AI · Vedic Tradition · Prokerala Data',
+    inputPlaceholder: 'Apna prashna poochhen...',
+    btnSend: '✦ Poochhen',
+    qq1: 'Lagna & vyaktitva', qq2: 'Career timing', qq3: 'Vivah yoga', qq4: 'Ratan salah',
+    qqQ1: 'Mera Lagna mera vyaktitva kya bolta hai?',
+    qqQ2: 'Career ke liye sabse achha samay kab aayega?',
+    qqQ3: 'Vivah ke baare mein kya kehti hai meri kundli?',
+    qqQ4: 'Kaun sa ratan mujhe pehnna chahiye?',
+    tipText: '💡 City ka naam type karein — coordinates automatically fill ho jaayenge!',
+    ascendant: 'Ascendant',
+  },
+  en: {
+    badge: '✦ Vedic Intelligence — AI Powered',
+    h1line1: 'Decode Your',
+    h1line2: 'Cosmic Blueprint',
+    subtitle: '5,000 years of Jyotish wisdom — delivered with AI precision. Your stars are speaking.',
+    formTitle: '✦ Generate Your Janam Kundli',
+    lblName: 'Full Name', lblDob: 'Date of Birth', lblTime: 'Time of Birth',
+    lblCity: 'Birth City', cityPlaceholder: 'E.g. Delhi, Ghaziabad, Mumbai...',
+    btnGenerate: '☽ Reveal My Destiny', btnGenerating: '⟳ Reading the stars...',
+    planetSection: '☿ Planetary Positions',
+    lagnaLabel: 'Your Lagna (Ascendant)', moonLabel: 'Moon Sign',
+    chatSection: '☽ AI Jyotish Advisor',
+    chatSubtitle: 'Claude AI · Vedic Tradition · Prokerala Data',
+    inputPlaceholder: 'Ask your question...',
+    btnSend: '✦ Ask',
+    qq1: 'Lagna & personality', qq2: 'Career timing', qq3: 'Marriage yoga', qq4: 'Gemstone advice',
+    qqQ1: 'What does my Lagna say about my personality?',
+    qqQ2: 'When is the best time for my career growth?',
+    qqQ3: 'What does my Kundli say about marriage?',
+    qqQ4: 'Which gemstone should I wear?',
+    tipText: '💡 Type city name — coordinates will auto-fill!',
+    ascendant: 'Ascendant',
+  }
+};
+
+function applyLang(lang) {
+  currentLang = lang;
+  const t = translations[lang];
+  document.getElementById('lang-hi').classList.toggle('lang-active', lang === 'hi');
+  document.getElementById('lang-en').classList.toggle('lang-active', lang === 'en');
+  document.querySelector('.badge').textContent = t.badge;
+  document.querySelector('.hero h1').innerHTML = `${t.h1line1}<br><em>${t.h1line2}</em>`;
+  document.querySelector('.hero-sub').textContent = t.subtitle;
+  document.querySelector('.form-card h2').textContent = t.formTitle;
+  document.querySelector('label[for="fname"]').textContent = t.lblName;
+  document.querySelector('label[for="dob"]').textContent = t.lblDob;
+  document.querySelector('label[for="tob"]').textContent = t.lblTime;
+  document.querySelector('label[for="city"]').textContent = t.lblCity;
+  document.getElementById('city').placeholder = t.cityPlaceholder;
+  document.getElementById('btn-text').textContent = t.btnGenerate;
+  document.getElementById('tip-text').textContent = t.tipText;
+  document.getElementById('planet-section-label').textContent = t.planetSection;
+  document.getElementById('lagna-label-text').textContent = t.lagnaLabel;
+  document.getElementById('moon-label-text').textContent = t.moonLabel;
+  document.getElementById('chat-section-label').textContent = t.chatSection;
+  document.querySelector('.chat-hi p').textContent = t.chatSubtitle;
+  document.getElementById('chat-input').placeholder = t.inputPlaceholder;
+  document.getElementById('btn-send').textContent = t.btnSend;
+  const qqs = document.querySelectorAll('.qq');
+  qqs[0].textContent = t.qq1; qqs[0].onclick = () => askQ(t.qqQ1);
+  qqs[1].textContent = t.qq2; qqs[1].onclick = () => askQ(t.qqQ2);
+  qqs[2].textContent = t.qq3; qqs[2].onclick = () => askQ(t.qqQ3);
+  qqs[3].textContent = t.qq4; qqs[3].onclick = () => askQ(t.qqQ4);
+}
+
+// Rashi names in Hindi & English
+const rashiNames = {
+  'Mesha':       { hi: 'मेष',       en: 'Aries' },
+  'Vrishabha':   { hi: 'वृषभ',      en: 'Taurus' },
+  'Mithuna':     { hi: 'मिथुन',     en: 'Gemini' },
+  'Karka':       { hi: 'कर्क',      en: 'Cancer' },
+  'Simha':       { hi: 'सिंह',      en: 'Leo' },
+  'Kanya':       { hi: 'कन्या',     en: 'Virgo' },
+  'Tula':        { hi: 'तुला',      en: 'Libra' },
+  'Vrishchika':  { hi: 'वृश्चिक',   en: 'Scorpio' },
+  'Dhanu':       { hi: 'धनु',       en: 'Sagittarius' },
+  'Makara':      { hi: 'मकर',       en: 'Capricorn' },
+  'Kumbha':      { hi: 'कुम्भ',     en: 'Aquarius' },
+  'Meena':       { hi: 'मीन',       en: 'Pisces' },
+};
+
+function getRashiDisplay(rasiName) {
+  const r = rashiNames[rasiName];
+  if (!r) return rasiName;
+  return currentLang === 'hi' ? `${r.hi}` : `${r.en}`;
+}
+
 // Planet icons & names
 const planetMap = {
-  'Sun': {icon:'☀️',name:'Surya'}, 'Moon': {icon:'🌙',name:'Chandra'},
-  'Mars': {icon:'♂️',name:'Mangal'}, 'Mercury': {icon:'☿',name:'Budha'},
-  'Jupiter': {icon:'♃',name:'Guru'}, 'Venus': {icon:'♀️',name:'Shukra'},
-  'Saturn': {icon:'♄',name:'Shani'}, 'Rahu': {icon:'☊',name:'Rahu'},
-  'Ketu': {icon:'☋',name:'Ketu'}
+  'Sun':     { icon: '☀️', hi: 'सूर्य',   en: 'Sun (Surya)' },
+  'Moon':    { icon: '🌙', hi: 'चंद्र',   en: 'Moon (Chandra)' },
+  'Mars':    { icon: '♂️', hi: 'मंगल',    en: 'Mars (Mangal)' },
+  'Mercury': { icon: '☿',  hi: 'बुध',     en: 'Mercury (Budha)' },
+  'Jupiter': { icon: '♃',  hi: 'गुरु',    en: 'Jupiter (Guru)' },
+  'Venus':   { icon: '♀️', hi: 'शुक्र',   en: 'Venus (Shukra)' },
+  'Saturn':  { icon: '♄',  hi: 'शनि',     en: 'Saturn (Shani)' },
+  'Rahu':    { icon: '☊',  hi: 'राहु',    en: 'Rahu' },
+  'Ketu':    { icon: '☋',  hi: 'केतु',    en: 'Ketu' },
 };
 
 let currentChart = null;
@@ -366,13 +485,9 @@ function renderPlanets(data) {
   const grid = document.getElementById('planet-grid');
   grid.innerHTML = '';
 
-  // Try to extract planet data from Prokerala response
   let planets = [];
-  if (data.planets?.data?.planet_position) {
-    planets = data.planets.data.planet_position;
-  } else if (data.kundli?.data?.planet_position) {
-    planets = data.kundli.data.planet_position;
-  }
+  if (data.planets?.data?.planet_position) planets = data.planets.data.planet_position;
+  else if (data.kundli?.data?.planet_position) planets = data.kundli.data.planet_position;
 
   if (planets.length === 0) {
     grid.innerHTML = '<p style="color:var(--cream-dim);font-size:14px;">Planet data load ho rahi hai...</p>';
@@ -380,27 +495,34 @@ function renderPlanets(data) {
   }
 
   planets.forEach(p => {
-    const info = planetMap[p.name] || { icon: '⭐', name: p.name };
+    const info = planetMap[p.name] || { icon: '⭐', hi: p.name, en: p.name };
     const retro = p.is_retrograde ? ' ℞' : '';
     const deg = p.degree ? parseFloat(p.degree).toFixed(1) + '°' : '';
+    // rasi is an object — use rasi.name
+    const rasiName = p.rasi?.name || p.rasi || '—';
+    const displayName = currentLang === 'hi' ? info.hi : info.en;
+    const displayRashi = getRashiDisplay(rasiName);
+
     grid.innerHTML += `
       <div class="pcard">
         <span class="pi">${info.icon}</span>
-        <div class="pn">${info.name}</div>
-        <div class="ps">${p.rasi || p.sign || '—'}</div>
+        <div class="pn">${displayName}</div>
+        <div class="ps">${displayRashi}</div>
         <div class="pd">${deg}${retro}</div>
       </div>`;
   });
 
-  // Lagna
+  // Lagna & Moon
   const lagna = data.kundli?.data?.ascendant || data.planets?.data?.ascendant;
   const moon = planets.find(p => p.name === 'Moon');
   if (lagna) {
-    document.getElementById('lagna-val').textContent = lagna.rasi || lagna;
+    const lagnaRasi = lagna.rasi?.name || lagna.name || lagna;
+    document.getElementById('lagna-val').textContent = getRashiDisplay(lagnaRasi);
     document.getElementById('lagna-box').style.display = 'flex';
   }
   if (moon) {
-    document.getElementById('moon-val').textContent = moon.rasi || moon.sign || '—';
+    const moonRasi = moon.rasi?.name || moon.rasi || '—';
+    document.getElementById('moon-val').textContent = getRashiDisplay(moonRasi);
   }
 }
 
