@@ -546,7 +546,7 @@ function drawKundliChart(planets, lagnaHouse) {
     if (pList.length > 0) {
       ctx.font = 'bold 11px serif';
       ctx.fillStyle = '#f0e6ce';
-      const startY = isLagna ? pos.y + 14 : pos.y + 8;
+      const startY = isLagna ? pos.y + 22 : pos.y + 8;
       pList.forEach((pname, i) => {
         ctx.fillText(pname, pos.x, startY + (i * 14));
       });
