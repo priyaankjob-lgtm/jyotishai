@@ -938,10 +938,14 @@ async function sendMsg() {
   const msg = input.value.trim();
   if (!msg||!currentChart) return;
 
-  // Check daily limit
-  if (window.checkAndIncrementLimit) {
+  // Check daily limit (skip for super_premium tier in testing)
+  const selectedTier = document.getElementById('tier-select')?.value || 'free';
+  if (window.checkAndIncrementLimit && selectedTier === 'free') {
     const allowed = await window.checkAndIncrementLimit();
     if (!allowed) return;
+  } else if (window.checkAndIncrementLimit && selectedTier !== 'free') {
+    // Premium/Super — still track but don't block (for testing)
+    await window.checkAndIncrementLimit();
   }
   // If Firebase not loaded yet — allow (fail open)
 
@@ -973,17 +977,17 @@ async function sendMsg() {
     // Show model badge
     const modelBadge = {
       'free': '⚡ Haiku',
-      'premium': '💜 Sonnet',
-      'super_premium': '👑 Sonnet'
+      'premium': '💜 Sonnet 4.5',
+      'super_premium': '👑 Sonnet 4.5'
     }[tier] || '';
 
     addMsg('ai', reply, `Jyotish Advisor ${modelBadge}`);
     chatHistory.push({role:'assistant',content:reply});
 
-    // Show GPT verification for super premium
+    // Show Opus verification for super premium
     if (tier === 'super_premium' && data.verification) {
       setTimeout(() => {
-        addMsg('ai', `🔍 **GPT-4o Verification:**\n${data.verification}`, '🤖 GPT-4o Expert');
+        addMsg('ai', `🔍 ${data.verification}`, '👁️ Opus Verification');
       }, 800);
     }
 
@@ -1044,7 +1048,7 @@ applyLang('hi');
 <!-- FIREBASE SDK -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut as fbSignOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const firebaseConfig = {
@@ -1072,14 +1076,21 @@ const LIMITS = {
   super_premium: { daily: 25, monthly: 9999, label: '👑 Super' }
 };
 
-// Sign in
+// Handle redirect result on page load
+getRedirectResult(auth).then(result => {
+  if (result?.user) console.log('Redirect login success:', result.user.email);
+}).catch(err => console.error('Redirect result error:', err));
+
+// Sign in — use redirect (more reliable than popup on Vercel)
 window.signInWithGoogle = async () => {
   try {
-    document.getElementById('google-login-btn').textContent = 'Signing in...';
-    await signInWithPopup(auth, provider);
+    const btn = document.getElementById('google-login-btn');
+    if (btn) btn.textContent = 'Redirecting to Google...';
+    await signInWithRedirect(auth, provider);
   } catch (err) {
     console.error('Login error:', err);
-    document.getElementById('google-login-btn').innerHTML = '⚠️ Try again';
+    const btn = document.getElementById('google-login-btn');
+    if (btn) btn.innerHTML = '⚠️ Try again';
   }
 };
 
