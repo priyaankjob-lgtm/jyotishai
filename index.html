@@ -943,6 +943,7 @@ async function sendMsg() {
     const allowed = await window.checkAndIncrementLimit();
     if (!allowed) return;
   }
+  // If Firebase not loaded yet — allow (fail open)
 
   input.value='';
   addMsg('user', msg, lang==='hi'?'आप':'You');
