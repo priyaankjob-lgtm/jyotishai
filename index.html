@@ -32,6 +32,29 @@
   .lang-btn { background:transparent; border:1px solid var(--glass-border); color:var(--cream-dim); padding:5px 14px; border-radius:100px; font-family:'JetBrains Mono',monospace; font-size:12px; cursor:pointer; transition:all .2s; }
   .lang-btn:hover { border-color:var(--gold); color:var(--gold); }
   .lang-active { background:rgba(201,168,76,0.15) !important; border-color:var(--gold) !important; color:var(--gold) !important; }
+
+  /* DASHA TABLE */
+  .dasha-table { width:100%; border-collapse:collapse; font-size:15px; }
+  .dasha-table th { font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.1em; color:var(--gold-dim); text-transform:uppercase; padding:10px 14px; border-bottom:1px solid var(--glass-border); text-align:left; }
+  .dasha-table td { padding:10px 14px; border-bottom:1px solid rgba(201,168,76,0.06); color:var(--cream-dim); font-size:14px; }
+  .dasha-row-current { background:rgba(201,168,76,0.08) !important; }
+  .dasha-row-current td { color:var(--cream) !important; }
+  .dasha-row-current td:first-child { color:var(--gold) !important; font-weight:600; }
+  .dasha-now-badge { display:inline-block; background:var(--ember); color:#fff; font-family:'JetBrains Mono',monospace; font-size:9px; padding:2px 7px; border-radius:4px; margin-left:8px; letter-spacing:.06em; vertical-align:middle; }
+  .dasha-progress-wrap { margin-top:6px; }
+  .dasha-progress-bar { height:3px; background:rgba(201,168,76,0.15); border-radius:2px; overflow:hidden; }
+  .dasha-progress-fill { height:100%; background:linear-gradient(90deg,var(--gold),var(--ember)); border-radius:2px; transition:width .5s ease; }
+  .dasha-antar { font-size:12px; color:var(--gold); margin-left:8px; font-family:'JetBrains Mono',monospace; }
+
+  /* YOGA BADGES */
+  .yoga-badge { display:inline-flex; align-items:center; gap:6px; background:rgba(201,168,76,0.08); border:1px solid rgba(201,168,76,0.25); border-radius:100px; padding:7px 16px; font-size:13px; color:var(--cream); font-family:'Crimson Pro',serif; }
+  .yoga-badge.special { border-color:rgba(232,100,42,0.4); background:rgba(232,100,42,0.08); }
+
+  /* NAKSHATRA CARD */
+  .nakshatra-card { background:linear-gradient(135deg,rgba(201,168,76,0.08),rgba(10,10,15,0.8)); border:1px solid var(--glass-border); border-radius:16px; padding:24px 28px; display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:16px; }
+  .nk-item .nk-label { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--gold-dim); letter-spacing:.1em; text-transform:uppercase; margin-bottom:4px; }
+  .nk-item .nk-val { font-family:'Cinzel',serif; font-size:16px; color:var(--cream); font-weight:600; }
+  .nk-item .nk-sub { font-size:13px; color:var(--cream-dim); margin-top:2px; }
   .hero { padding:100px 0 80px; text-align:center; }
   .badge { display:inline-flex; align-items:center; gap:8px; border:1px solid var(--glass-border); background:var(--glass); padding:6px 18px; border-radius:100px; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.15em; color:var(--gold); margin-bottom:40px; text-transform:uppercase; }
   .badge::before { content:''; width:6px; height:6px; background:var(--ember); border-radius:50%; animation:pdot 2s ease infinite; }
@@ -202,6 +225,20 @@
     </div>
     <div class="section-label" id="planet-section-label">☿ ग्रहों की स्थिति (Planetary Positions)</div>
     <div class="planet-grid" id="planet-grid"></div>
+
+    <!-- DASHA TABLE -->
+    <div class="section-label" id="dasha-section-label" style="margin-top:32px;">⏳ विंशोत्तरी दशा (Vimshottari Dasha)</div>
+    <div id="dasha-container" style="margin-bottom:28px;"></div>
+
+    <!-- YOGA BADGES -->
+    <div id="yoga-section" style="display:none;margin-bottom:28px;">
+      <div class="section-label" id="yoga-section-label">✨ कुंडली के योग (Yogas)</div>
+      <div id="yoga-badges" style="display:flex;flex-wrap:wrap;gap:10px;"></div>
+    </div>
+
+    <!-- NAKSHATRA CARD -->
+    <div id="nakshatra-card" style="display:none;margin-bottom:28px;"></div>
+
     <div class="section-label" id="chat-section-label" style="margin-top:32px;">☽ AI ज्योतिष सलाहकार</div>
     <div class="chat-card">
       <div class="chat-header">
@@ -456,9 +493,163 @@ function renderPlanets(data) {
   // Draw Kundli chart
   const lagnaHouse = data.kundli?.data?.ascendant?.number || 1;
   drawKundliChart(planets, lagnaHouse);
+
+  // Render Dasha table
+  renderDasha(data);
+
+  // Render Yoga badges
+  renderYogas(data);
+
+  // Render Nakshatra card
+  renderNakshatra(data);
 }
 
-// ── KUNDLI CHART (North Indian Style) ──
+// ── RENDER DASHA TABLE ──
+function renderDasha(data) {
+  const container = document.getElementById('dasha-container');
+  if (!container) return;
+
+  const dashaData = data.dasha?.data || {};
+  const periods = dashaData.dasha_periods || dashaData.mahadasha || [];
+  if (!periods.length) { container.innerHTML = '<p style="color:var(--cream-dim);font-size:14px;">Dasha data loading...</p>'; return; }
+
+  const now = new Date();
+  let html = `<div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:14px;overflow:hidden;">
+    <table class="dasha-table">
+      <thead><tr>
+        <th>महादशा (Mahadasha)</th>
+        <th>प्रारंभ</th>
+        <th>समाप्ति</th>
+        <th>अवधि</th>
+      </tr></thead>
+      <tbody>`;
+
+  periods.forEach(d => {
+    const start = new Date(d.start || d.from);
+    const end = new Date(d.end || d.to);
+    const isCurrent = now >= start && now <= end;
+    const planetName = d.planet?.name || d.name || '?';
+    const planetIcons = {'Sun':'☀️','Moon':'🌙','Mars':'♂️','Mercury':'☿','Jupiter':'♃','Venus':'♀️','Saturn':'♄','Rahu':'☊','Ketu':'☋'};
+    const icon = planetIcons[planetName] || '⭐';
+
+    // Duration in years
+    const years = Math.round((end - start) / (365.25 * 24 * 60 * 60 * 1000));
+
+    // Progress for current
+    let progressHtml = '';
+    if (isCurrent) {
+      const total = end - start;
+      const elapsed = now - start;
+      const pct = Math.min(100, Math.round((elapsed / total) * 100));
+      progressHtml = `<div class="dasha-progress-wrap"><div class="dasha-progress-bar"><div class="dasha-progress-fill" style="width:${pct}%"></div></div></div>`;
+
+      // Find current antardasha
+      const antars = d.antardashas || d.antardasha || [];
+      const currentAntar = antars.find(a => now >= new Date(a.start||a.from) && now <= new Date(a.end||a.to));
+      if (currentAntar) {
+        const antarName = currentAntar.planet?.name || currentAntar.name || '';
+        const antarEnd = new Date(currentAntar.end || currentAntar.to);
+        progressHtml += `<div class="dasha-antar">↳ ${antarName} Antardasha (${antarEnd.toLocaleDateString('hi-IN',{year:'numeric',month:'short'})} तक)</div>`;
+      }
+    }
+
+    const startStr = start.getFullYear();
+    const endStr = end.getFullYear();
+
+    html += `<tr class="${isCurrent?'dasha-row-current':''}">
+      <td>${icon} ${planetName}${isCurrent?`<span class="dasha-now-badge">अभी</span>`:''} ${progressHtml}</td>
+      <td>${startStr}</td>
+      <td>${endStr}</td>
+      <td>${years} वर्ष</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+}
+
+// ── RENDER YOGA BADGES ──
+function renderYogas(data) {
+  const yogaData = data.yoga?.data || {};
+  const yogas = yogaData.yoga_details || yogaData.yogas || [];
+  const activeYogas = yogas.filter(y => y.has_yoga || y.present);
+
+  const section = document.getElementById('yoga-section');
+  const badgesEl = document.getElementById('yoga-badges');
+  if (!section || !badgesEl) return;
+
+  if (!activeYogas.length) { section.style.display = 'none'; return; }
+
+  const specialYogas = ['Raj Yoga', 'Gaj Kesari', 'Panch Mahapurusha', 'Hamsa', 'Malavya', 'Ruchaka', 'Bhadra', 'Sasa', 'Shasha'];
+  const yogaEmojis = {'Raj Yoga':'👑','Gaj Kesari':'🐘','Hamsa':'🦢','Malavya':'💎','Ruchaka':'⚔️','Bhadra':'📚','Sasa':'🪐','Shasha':'🪐'};
+
+  badgesEl.innerHTML = activeYogas.map(y => {
+    const isSpecial = specialYogas.some(s => y.name?.includes(s));
+    const emoji = yogaEmojis[y.name] || '✨';
+    return `<div class="yoga-badge ${isSpecial?'special':''}" title="${y.description||''}">${emoji} ${y.name}</div>`;
+  }).join('');
+
+  section.style.display = 'block';
+}
+
+// ── RENDER NAKSHATRA CARD ──
+function renderNakshatra(data) {
+  const card = document.getElementById('nakshatra-card');
+  if (!card) return;
+
+  const birth = data.birth?.data || {};
+  const nakshatra = birth.nakshatra?.name || birth.birth_nakshatra?.name;
+  if (!nakshatra) { card.style.display = 'none'; return; }
+
+  const pada = birth.nakshatra?.pada || birth.birth_nakshatra?.pada || '';
+  const lord = birth.nakshatra?.lord?.name || birth.birth_nakshatra?.lord?.name || '';
+  const tithi = birth.tithi?.name || '';
+  const rashi = birth.rashi?.name || '';
+
+  const nakshatraDeities = {
+    'Ashwini':'अश्विनी कुमार','Bharani':'यम','Krittika':'अग्नि','Rohini':'ब्रह्मा','Mrigashira':'सोम',
+    'Ardra':'रुद्र','Punarvasu':'अदिति','Pushya':'बृहस्पति','Ashlesha':'सर्प','Magha':'पितृ',
+    'Purva Phalguni':'भग','Uttara Phalguni':'अर्यमा','Hasta':'सूर्य','Chitra':'त्वष्टा','Swati':'वायु',
+    'Vishakha':'इंद्र-अग्नि','Anuradha':'मित्र','Jyeshtha':'इंद्र','Mula':'निरृति','Purva Ashadha':'जल',
+    'Uttara Ashadha':'विश्वेदेव','Shravana':'विष्णु','Dhanishtha':'वसु','Shatabhisha':'वरुण',
+    'Purva Bhadrapada':'अजैकपाद','Uttara Bhadrapada':'अहिर्बुध्न्य','Revati':'पूषा'
+  };
+
+  const deity = nakshatraDeities[nakshatra] || '';
+
+  card.innerHTML = `
+    <div class="section-label">🌟 जन्म नक्षत्र (Birth Star)</div>
+    <div class="nakshatra-card">
+      <div class="nk-item">
+        <div class="nk-label">नक्षत्र</div>
+        <div class="nk-val">⭐ ${nakshatra}</div>
+        <div class="nk-sub">Pada ${pada}</div>
+      </div>
+      <div class="nk-item">
+        <div class="nk-label">स्वामी ग्रह</div>
+        <div class="nk-val">🪐 ${lord}</div>
+        <div class="nk-sub">Nakshatra Lord</div>
+      </div>
+      ${deity ? `<div class="nk-item">
+        <div class="nk-label">देवता</div>
+        <div class="nk-val">🙏 ${deity}</div>
+        <div class="nk-sub">Adhidevata</div>
+      </div>` : ''}
+      ${tithi ? `<div class="nk-item">
+        <div class="nk-label">तिथि</div>
+        <div class="nk-val">🌙 ${tithi}</div>
+        <div class="nk-sub">Birth Tithi</div>
+      </div>` : ''}
+      ${rashi ? `<div class="nk-item">
+        <div class="nk-label">राशि</div>
+        <div class="nk-val">♈ ${rashi}</div>
+        <div class="nk-sub">Moon Sign</div>
+      </div>` : ''}
+    </div>`;
+  card.style.display = 'block';
+}
+
+
 function drawKundliChart(planets, lagnaHouse) {
   const canvas = document.getElementById('kundli-chart');
   if (!canvas) return;
@@ -702,7 +893,7 @@ Venus → Diamond / Heera (हीरा) or White Sapphire
 Saturn → Blue Sapphire / Neelam (नीलम)
 Rahu → Hessonite / Gomed (गोमेद) ← NOT Neelam
 Ketu → Cat's Eye / Lehsunia (लहसुनिया)
-RULE: Only recommend gemstone of the chart's Lagna lord or current Mahadasha lord if benefic — always advise consulting a qualified astrologer for weight and purification
+RULE: Recommend ONLY ONE gemstone — the single most beneficial one based on Lagna lord or current Mahadasha lord if benefic. Never suggest two stones simultaneously. Always advise consulting a qualified astrologer for weight and purification
 
 ━━━ HOUSES ━━━
 1:Self | 2:Wealth | 3:Courage | 4:Home | 5:Intelligence | 6:Enemies
