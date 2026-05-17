@@ -26,34 +26,44 @@ export default async function handler(req, res) {
     const base = 'https://api.prokerala.com/v2/astrology';
     const auth = { Authorization: `Bearer ${token}` };
 
-    // Safe fetch — never throws, returns null on error
-    const safeFetch = async (url) => {
+    // Safe fetch — never crashes
+    const safeFetch = async (url, name) => {
       try {
         const r = await fetch(url, { headers: auth });
         const json = await r.json();
-        console.log(`${url.split('/').pop().split('?')[0]}:`, JSON.stringify(json?.data).substring(0, 200));
+        const preview = JSON.stringify(json?.data || json);
+        console.log(`${name}:`, preview ? preview.substring(0, 200) : 'no data');
         return json;
       } catch (e) {
-        console.error(`Failed: ${url}`, e.message);
-        return null;
+        console.error(`Failed ${name}:`, e.message);
+        return { data: null, error: e.message };
       }
     };
 
-    // All 6 calls in parallel — safe
-    const [planets, kundli, birth, dasha, yoga, mangal, kaalsarp] = await Promise.all([
-      safeFetch(`${base}/planet-position?${params}`),
-      safeFetch(`${base}/kundli?${params}`),
-      safeFetch(`${base}/birth-details?${params}`),
-      safeFetch(`${base}/dasha-periods?${params}`),
-      safeFetch(`${base}/yoga-details?${params}`),
-      safeFetch(`${base}/mangal-dosha?${params}`),
-      safeFetch(`${base}/kaal-sarp-dosha?${params}`),
+    // All calls in parallel
+    const [planets, kundli, birth, dasha, mangal, kaalsarp] = await Promise.all([
+      safeFetch(`${base}/planet-position?${params}`, 'PLANETS'),
+      safeFetch(`${base}/kundli?${params}`, 'KUNDLI'),
+      safeFetch(`${base}/birth-details?${params}`, 'BIRTH'),
+      safeFetch(`${base}/dasha-periods?${params}`, 'DASHA'),
+      safeFetch(`${base}/mangal-dosha?${params}`, 'MANGAL'),
+      safeFetch(`${base}/kaal-sarp-dosha?${params}`, 'KAALSARP'),
     ]);
+
+    // Yoga — separate call with different endpoint format
+    let yoga = { data: null };
+    try {
+      const yogaRes = await fetch(`${base}/yoga-details?ayanamsa=1&coordinates=${coordinates}&datetime=${encodeURIComponent(datetime)}&la=hi`, { headers: auth });
+      yoga = await yogaRes.json();
+      console.log('YOGA:', JSON.stringify(yoga?.data).substring(0, 200));
+    } catch(e) {
+      console.log('Yoga not available:', e.message);
+    }
 
     return res.status(200).json({ planets, kundli, birth, dasha, yoga, mangal, kaalsarp });
 
   } catch (err) {
-    console.error('Fatal error:', err.message);
+    console.error('Fatal:', err.message);
     return res.status(500).json({ error: err.message });
   }
 }
