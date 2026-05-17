@@ -150,6 +150,32 @@
   <polygon points="250,470 32,125 468,125" fill="none" stroke="#c9a84c" stroke-width="0.5"/>
 </svg>
 
+<!-- FIREBASE LOGIN OVERLAY -->
+<div id="auth-overlay" style="position:fixed;inset:0;background:rgba(10,10,15,0.97);z-index:1000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);">
+  <div style="background:linear-gradient(135deg,rgba(201,168,76,0.07),rgba(10,10,15,0.9));border:1px solid rgba(201,168,76,0.2);border-radius:24px;padding:48px;max-width:420px;width:90%;text-align:center;">
+    <div style="font-size:56px;margin-bottom:20px;">🔮</div>
+    <h2 style="font-family:'Cinzel',serif;font-size:26px;color:#c9a84c;margin-bottom:8px;letter-spacing:.08em;">JyotishAI</h2>
+    <p style="font-family:'Crimson Pro',serif;color:#E8449A;font-size:18px;font-style:italic;margin-bottom:8px;">Vedic Intelligence</p>
+    <p style="color:#a89878;font-size:15px;line-height:1.7;margin-bottom:32px;">५,००० साल की ज्योतिष परंपरा<br>Sign in to reveal your cosmic blueprint</p>
+    <button id="google-login-btn" onclick="signInWithGoogle()" style="width:100%;padding:14px 20px;background:white;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:12px;transition:opacity .2s;margin-bottom:12px;">
+      <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Continue with Google
+    </button>
+    <p style="color:rgba(168,152,120,0.4);font-size:11px;line-height:1.6;">Free: 3 questions/day · Premium: 10/day · Super: 25/day<br>Your data is safe and private.</p>
+  </div>
+</div>
+
+<!-- USER BAR -->
+<div id="user-bar" style="display:none;position:fixed;bottom:20px;right:20px;z-index:500;background:rgba(10,10,15,0.92);border:1px solid rgba(201,168,76,0.2);border-radius:14px;padding:10px 16px;align-items:center;gap:10px;backdrop-filter:blur(10px);">
+  <img id="user-avatar" src="" style="width:30px;height:30px;border-radius:50%;border:2px solid #c9a84c;" />
+  <div>
+    <div id="user-name" style="font-family:'Cinzel',serif;font-size:12px;color:#c9a84c;"></div>
+    <div id="user-questions" style="font-family:'JetBrains Mono',monospace;font-size:9px;color:#a89878;margin-top:1px;"></div>
+  </div>
+  <div id="tier-badge" style="font-family:'JetBrains Mono',monospace;font-size:9px;padding:3px 8px;border-radius:100px;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);color:#c9a84c;"></div>
+  <button onclick="signOut()" style="background:transparent;border:1px solid rgba(201,168,76,0.15);color:#a89878;font-size:10px;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all .2s;" onmouseover="this.style.borderColor='#c9a84c'" onmouseout="this.style.borderColor='rgba(201,168,76,0.15)'">Sign Out</button>
+</div>
+
 <div class="wrapper">
   <nav>
     <a class="logo" href="#">Jyotish<span>AI</span></a>
@@ -247,7 +273,14 @@
           <h3>Jyotish Advisor</h3>
           <p id="chat-subtitle">Claude AI · Vedic Tradition · Prokerala Data</p>
         </div>
-        <div class="chat-status">Online</div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+          <select id="tier-select" style="background:#1a1410;border:1px solid var(--glass-border);color:var(--cream-dim);font-family:'JetBrains Mono',monospace;font-size:10px;padding:5px 10px;border-radius:8px;outline:none;cursor:pointer;">
+            <option value="free">⚡ Free (Haiku)</option>
+            <option value="premium">💜 Premium (Sonnet)</option>
+            <option value="super_premium">👑 Super (Sonnet+GPT4)</option>
+          </select>
+          <div class="chat-status">Online</div>
+        </div>
       </div>
       <div id="chat-messages"></div>
       <div class="quick-qs">
@@ -904,20 +937,59 @@ async function sendMsg() {
   const input = document.getElementById('chat-input');
   const msg = input.value.trim();
   if (!msg||!currentChart) return;
+
+  // Check daily limit
+  if (window.checkAndIncrementLimit) {
+    const allowed = await window.checkAndIncrementLimit();
+    if (!allowed) return;
+  }
+
   input.value='';
   addMsg('user', msg, lang==='hi'?'आप':'You');
   const btn=document.getElementById('btn-send');
   btn.disabled=true;
   const typing=showTyping();
   chatHistory.push({role:'user',content:msg});
+
+  const tier = document.getElementById('tier-select')?.value || 'free';
+
   try {
-    const res = await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:chatHistory,systemPrompt:buildSystem(currentChart.name,currentChart.data)})});
+    const res = await fetch('/api/claude',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        messages:chatHistory,
+        systemPrompt:buildSystem(currentChart.name,currentChart.data),
+        tier
+      })
+    });
+
     const data = await res.json();
     typing.remove();
-    const reply = data.reply||'Kshama karein, abhi jawab nahi mil raha.';
-    addMsg('ai', reply, 'Jyotish Advisor');
+
+    const reply = data.reply || 'Kshama karein, abhi jawab nahi mil raha.';
+
+    // Show model badge
+    const modelBadge = {
+      'free': '⚡ Haiku',
+      'premium': '💜 Sonnet',
+      'super_premium': '👑 Sonnet'
+    }[tier] || '';
+
+    addMsg('ai', reply, `Jyotish Advisor ${modelBadge}`);
     chatHistory.push({role:'assistant',content:reply});
-  } catch(err) { typing.remove(); addMsg('ai','Network error. Thodi der baad poochhen. 🙏','Jyotish Advisor'); }
+
+    // Show GPT verification for super premium
+    if (tier === 'super_premium' && data.verification) {
+      setTimeout(() => {
+        addMsg('ai', `🔍 **GPT-4o Verification:**\n${data.verification}`, '🤖 GPT-4o Expert');
+      }, 800);
+    }
+
+  } catch(err) {
+    typing.remove();
+    addMsg('ai','Network error. Thodi der baad poochhen. 🙏','Jyotish Advisor');
+  }
   btn.disabled=false;
 }
 
@@ -945,6 +1017,142 @@ function showError(msg) { document.getElementById('error-area').innerHTML=`<div 
 
 // ── INIT ──
 applyLang('hi');
+</script>
+
+<!-- FIREBASE SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBeam9Mn9nPse9xrXd8w3KXrtR4viM6ZDU",
+  authDomain: "jyotishai-fb5c7.firebaseapp.com",
+  projectId: "jyotishai-fb5c7",
+  storageBucket: "jyotishai-fb5c7.firebasestorage.app",
+  messagingSenderId: "954196315743",
+  appId: "1:954196315743:web:62700510f91a12a3c795ea"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const provider = new GoogleAuthProvider();
+
+let currentUser = null;
+let userTier = 'free';
+let dailyCount = 0;
+let monthlyCount = 0;
+
+const LIMITS = {
+  free:          { daily: 3,  monthly: 10,  label: '⚡ Free' },
+  premium:       { daily: 10, monthly: 9999, label: '💜 Premium' },
+  super_premium: { daily: 25, monthly: 9999, label: '👑 Super' }
+};
+
+// Sign in
+window.signInWithGoogle = async () => {
+  try {
+    document.getElementById('google-login-btn').textContent = 'Signing in...';
+    await signInWithPopup(auth, provider);
+  } catch (err) {
+    console.error('Login error:', err);
+    document.getElementById('google-login-btn').innerHTML = '⚠️ Try again';
+  }
+};
+
+// Sign out
+window.signOut = async () => {
+  await fbSignOut(auth);
+  currentUser = null;
+  document.getElementById('auth-overlay').style.display = 'flex';
+  document.getElementById('user-bar').style.display = 'none';
+};
+
+// Auth state change
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    currentUser = user;
+    document.getElementById('auth-overlay').style.display = 'none';
+    const userBar = document.getElementById('user-bar');
+    userBar.style.display = 'flex';
+    document.getElementById('user-avatar').src = user.photoURL || '';
+    document.getElementById('user-name').textContent = user.displayName?.split(' ')[0] || 'User';
+
+    const userRef = doc(db, 'users', user.uid);
+    const userSnap = await getDoc(userRef);
+    const today = new Date().toDateString();
+    const thisMonth = new Date().toISOString().substring(0, 7);
+
+    if (!userSnap.exists()) {
+      await setDoc(userRef, {
+        name: user.displayName, email: user.email, photo: user.photoURL,
+        tier: 'free', daily_count: 0, monthly_count: 0,
+        last_reset: today, last_month_reset: thisMonth,
+        created_at: serverTimestamp()
+      });
+      userTier = 'free'; dailyCount = 0; monthlyCount = 0;
+    } else {
+      const data = userSnap.data();
+      userTier = data.tier || 'free';
+      if (data.last_reset !== today) {
+        await updateDoc(userRef, { daily_count: 0, last_reset: today });
+        dailyCount = 0;
+      } else { dailyCount = data.daily_count || 0; }
+      if (data.last_month_reset !== thisMonth) {
+        await updateDoc(userRef, { monthly_count: 0, last_month_reset: thisMonth });
+        monthlyCount = 0;
+      } else { monthlyCount = data.monthly_count || 0; }
+    }
+
+    updateUserBar();
+    const tierSelect = document.getElementById('tier-select');
+    if (tierSelect) tierSelect.value = userTier;
+
+  } else {
+    document.getElementById('auth-overlay').style.display = 'flex';
+    document.getElementById('user-bar').style.display = 'none';
+  }
+});
+
+function updateUserBar() {
+  const limit = LIMITS[userTier] || LIMITS.free;
+  const dailyLeft = Math.max(0, limit.daily - dailyCount);
+  const monthlyLeft = userTier === 'free' ? Math.max(0, limit.monthly - monthlyCount) : null;
+  let qText = `${dailyLeft}/${limit.daily} today`;
+  if (monthlyLeft !== null) qText += ` · ${monthlyLeft}/${limit.monthly} this month`;
+  document.getElementById('user-questions').textContent = qText;
+  document.getElementById('tier-badge').textContent = limit.label;
+}
+
+window.checkAndIncrementLimit = async () => {
+  if (!currentUser) return false;
+  const limit = LIMITS[userTier] || LIMITS.free;
+
+  // Daily limit check
+  if (dailyCount >= limit.daily) {
+    if (userTier === 'free') {
+      showError('🔒 आज की limit खत्म! (3/day)\n\n💜 Premium (₹99/mo) लें — 10 questions/day!\n\nया कल आएं 🌙');
+    } else if (userTier === 'premium') {
+      showError('🔒 आज की limit खत्म! (10/day)\n\n👑 Super Premium (₹299/mo) लें — 25/day + PDF reports!\n\nया कल आएं 🌙');
+    } else {
+      showError('🔒 Daily limit खत्म! कल आएं 🌙');
+    }
+    return false;
+  }
+
+  // Monthly limit check (free only)
+  if (userTier === 'free' && monthlyCount >= limit.monthly) {
+    showError('🔒 इस महीने की limit खत्म! (10/month)\n\n💜 Premium (₹99/mo) लें — unlimited monthly!\n\nया अगले महीने आएं 📅');
+    return false;
+  }
+
+  dailyCount++; monthlyCount++;
+  const userRef = doc(db, 'users', currentUser.uid);
+  await updateDoc(userRef, { daily_count: dailyCount, monthly_count: monthlyCount });
+  updateUserBar();
+  return true;
+};
 </script>
 </body>
 </html>
