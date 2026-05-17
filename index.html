@@ -274,10 +274,10 @@
           <p id="chat-subtitle">Claude AI · Vedic Tradition · Prokerala Data</p>
         </div>
         <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
-          <select id="tier-select" style="background:#1a1410;border:1px solid var(--glass-border);color:var(--cream-dim);font-family:'JetBrains Mono',monospace;font-size:10px;padding:5px 10px;border-radius:8px;outline:none;cursor:pointer;">
-            <option value="free">⚡ Free (Haiku)</option>
-            <option value="premium">💜 Premium (Sonnet)</option>
-            <option value="super_premium">👑 Super (Sonnet+GPT4)</option>
+          <select id="tier-select" style="background:#1a1410;border:1px solid var(--glass-border);color:var(--cream-dim);font-family:'JetBrains Mono',monospace;font-size:10px;padding:5px 10px;border-radius:8px;outline:none;cursor:pointer;" onchange="onTierChange(this)">
+            <option value="free">⚡ Free — Haiku</option>
+            <option value="premium">💜 Premium — Sonnet 4.5</option>
+            <option value="super_premium">👑 Super — Sonnet 4.5 + Opus Check</option>
           </select>
           <div class="chat-status">Online</div>
         </div>
@@ -1013,7 +1013,28 @@ function showTyping() {
   msgs.scrollTop=msgs.scrollHeight;
   return el;
 }
-function showError(msg) { document.getElementById('error-area').innerHTML=`<div class="error-box">⚠️ ${msg}</div>`; }
+function showError(msg) { document.getElementById('error-area').innerHTML=`<div class="error-box">⚠️ ${msg.replace(/\\n/g,'<br>')}</div>`; }
+
+// Tier change handler — allow all for now (testing mode)
+function onTierChange(select) {
+  const selectedTier = select.value;
+  const tierLabels = {
+    'free': '⚡ Free — Haiku',
+    'premium': '💜 Premium — Sonnet 4.5',
+    'super_premium': '👑 Super — Sonnet 4.5 + Opus Check'
+  };
+  console.log('Tier changed to:', selectedTier);
+  // Update model badge in chat
+  const subtitle = document.getElementById('chat-subtitle');
+  if (subtitle) {
+    const models = {
+      'free': 'Claude Haiku · Vedic Tradition · Prokerala',
+      'premium': 'Claude Sonnet 4.5 · Vedic Tradition · Prokerala',
+      'super_premium': 'Claude Sonnet 4.5 + Opus · Vedic Tradition · Prokerala'
+    };
+    subtitle.textContent = models[selectedTier] || models.free;
+  }
+}
 
 // ── INIT ──
 applyLang('hi');
@@ -1106,6 +1127,7 @@ onAuthStateChanged(auth, async (user) => {
     }
 
     updateUserBar();
+    window._userTier = userTier;
     const tierSelect = document.getElementById('tier-select');
     if (tierSelect) tierSelect.value = userTier;
 
@@ -1132,18 +1154,18 @@ window.checkAndIncrementLimit = async () => {
   // Daily limit check
   if (dailyCount >= limit.daily) {
     if (userTier === 'free') {
-      showError('🔒 आज की limit खत्म! (3/day)\n\n💜 Premium (₹99/mo) लें — 10 questions/day!\n\nया कल आएं 🌙');
+      window.showError('🔒 आज की limit खत्म! (3/day)<br><br>💜 <b>Premium ₹99/mo</b> — 10 questions/day!<br>📧 connect@jyotishai.com<br><br>या कल आएं 🌙');
     } else if (userTier === 'premium') {
-      showError('🔒 आज की limit खत्म! (10/day)\n\n👑 Super Premium (₹299/mo) लें — 25/day + PDF reports!\n\nया कल आएं 🌙');
+      window.showError('🔒 आज की limit खत्म! (10/day)<br><br>👑 <b>Super Premium ₹299/mo</b> — 25/day + PDF!<br>📧 connect@jyotishai.com<br><br>या कल आएं 🌙');
     } else {
-      showError('🔒 Daily limit खत्म! कल आएं 🌙');
+      window.showError('🔒 Daily limit खत्म! कल आएं 🌙');
     }
     return false;
   }
 
   // Monthly limit check (free only)
   if (userTier === 'free' && monthlyCount >= limit.monthly) {
-    showError('🔒 इस महीने की limit खत्म! (10/month)\n\n💜 Premium (₹99/mo) लें — unlimited monthly!\n\nया अगले महीने आएं 📅');
+    window.showError('🔒 इस महीने की limit खत्म! (10/month)<br><br>💜 <b>Premium ₹99/mo</b> — unlimited monthly!<br>📧 connect@jyotishai.com<br><br>या अगले महीने आएं 📅');
     return false;
   }
 
