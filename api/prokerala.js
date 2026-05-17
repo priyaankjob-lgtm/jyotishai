@@ -41,26 +41,29 @@ export default async function handler(req, res) {
     };
 
     // All calls in parallel
-    const [planets, kundli, birth, dasha, mangal, kaalsarp] = await Promise.all([
+    const [planets, kundli, birth, dasha, mangal] = await Promise.all([
       safeFetch(`${base}/planet-position?${params}`, 'PLANETS'),
       safeFetch(`${base}/kundli?${params}`, 'KUNDLI'),
       safeFetch(`${base}/birth-details?${params}`, 'BIRTH'),
       safeFetch(`${base}/dasha-periods?${params}`, 'DASHA'),
       safeFetch(`${base}/mangal-dosha?${params}`, 'MANGAL'),
-      safeFetch(`${base}/kaal-sarp-dosha?${params}`, 'KAALSARP'),
     ]);
 
-    // Yoga — separate call with different endpoint format
+    // Yoga — separate
     let yoga = { data: null };
     try {
-      const yogaRes = await fetch(`${base}/yoga-details?ayanamsa=1&coordinates=${coordinates}&datetime=${encodeURIComponent(datetime)}&la=hi`, { headers: auth });
-      yoga = await yogaRes.json();
-      console.log('YOGA:', JSON.stringify(yoga?.data).substring(0, 200));
+      const yogaRes = await fetch(`${base}/yoga-details?ayanamsa=1&coordinates=${coordinates}&datetime=${encodeURIComponent(datetime)}`, { headers: auth });
+      if (yogaRes.ok) {
+        yoga = await yogaRes.json();
+        console.log('YOGA:', JSON.stringify(yoga?.data || 'no data').substring(0, 200));
+      } else {
+        console.log('Yoga endpoint status:', yogaRes.status);
+      }
     } catch(e) {
-      console.log('Yoga not available:', e.message);
+      console.log('Yoga error:', e.message);
     }
 
-    return res.status(200).json({ planets, kundli, birth, dasha, yoga, mangal, kaalsarp });
+    return res.status(200).json({ planets, kundli, birth, dasha, yoga, mangal, kaalsarp: null });
 
   } catch (err) {
     console.error('Fatal:', err.message);
