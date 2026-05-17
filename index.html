@@ -570,127 +570,118 @@ async function sendGreeting(name, data) {
 
 function buildSystem(name, data) {
   const planets = data.planets?.data?.planet_position || data.kundli?.data?.planet_position || [];
-  const planetStr = planets.map(p=>`  ${p.name}: ${p.rasi?.name||'Unknown'} | ${p.degree?parseFloat(p.degree).toFixed(2)+'°':''} | House ${p.position||'?'}${p.is_retrograde?' | VAKRI (Retrograde)':''} | Lord: ${p.rasi?.lord?.name||''}`).join('\n');
-  const lagna = data.kundli?.data?.ascendant?.rasi?.name || data.kundli?.data?.ascendant?.name || 'Unknown';
+  const planetStr = planets.map(p=>`  ${p.name}: ${p.rasi?.name||'Unknown'} | ${p.degree?parseFloat(p.degree).toFixed(2)+'deg':''} | House ${p.position||'?'}${p.is_retrograde?' | VAKRI':''} | Lord: ${p.rasi?.lord?.vedic_name||p.rasi?.lord?.name||''}`).join('\n');
+
+  const lagna = data.kundli?.data?.ascendant?.rasi?.name || 'Unknown';
   const moonSign = planets.find(p=>p.name==='Moon')?.rasi?.name || 'Unknown';
   const sunSign = planets.find(p=>p.name==='Sun')?.rasi?.name || 'Unknown';
 
-  // Birth Details — Nakshatra, Tithi etc.
+  // Birth Details
   const birth = data.birth?.data || {};
   const nakshatra = birth.nakshatra?.name || birth.birth_nakshatra?.name || 'Unknown';
   const nakshatraPada = birth.nakshatra?.pada || birth.birth_nakshatra?.pada || '';
   const nakshatraLord = birth.nakshatra?.lord?.name || birth.birth_nakshatra?.lord?.name || '';
-  const tithi = birth.tithi?.name || '';
-  const rashi = birth.rashi?.name || moonSign;
+  const tithi = birth.tithi?.name || 'Unknown';
 
-  // Dasha — current Mahadasha & Antardasha
+  // Age calculation
+  const dobStr = document.getElementById('dob').value;
+  let age = 'Unknown';
+  let adultYear = 9999;
+  if (dobStr) {
+    const dob = new Date(dobStr);
+    const today = new Date();
+    age = Math.floor((today - dob) / (365.25 * 24 * 60 * 60 * 1000));
+    adultYear = dob.getFullYear() + 18;
+  }
+
+  // Dasha
   const dashaData = data.dasha?.data || {};
   let currentDasha = 'Unknown';
   let currentAntardasha = 'Unknown';
   let dashaEnd = '';
+  let antardashaEnd = '';
   let dashaStr = '';
 
-  if (dashaData.dasha_periods || dashaData.mahadasha) {
-    const periods = dashaData.dasha_periods || dashaData.mahadasha || [];
+  const periods = dashaData.dasha_periods || dashaData.mahadasha || [];
+  if (periods.length) {
     const now = new Date();
-    const current = periods.find(d => {
-      const start = new Date(d.start || d.from);
-      const end = new Date(d.end || d.to);
-      return now >= start && now <= end;
-    });
+    const current = periods.find(d => now >= new Date(d.start||d.from) && now <= new Date(d.end||d.to));
     if (current) {
       currentDasha = current.planet?.name || current.name || 'Unknown';
       dashaEnd = current.end || current.to || '';
-      // Antardasha
       const antars = current.antardashas || current.antardasha || [];
-      const currentAntar = antars.find(a => {
-        const start = new Date(a.start || a.from);
-        const end = new Date(a.end || a.to);
-        return now >= start && now <= end;
-      });
-      if (currentAntar) currentAntardasha = currentAntar.planet?.name || currentAntar.name || 'Unknown';
+      const currentAntar = antars.find(a => now >= new Date(a.start||a.from) && now <= new Date(a.end||a.to));
+      if (currentAntar) {
+        currentAntardasha = currentAntar.planet?.name || currentAntar.name || 'Unknown';
+        antardashaEnd = currentAntar.end || currentAntar.to || '';
+      }
     }
-    // Next 3 dashas
-    dashaStr = periods.slice(0, 6).map(d =>
-      `  ${d.planet?.name||d.name}: ${d.start||d.from} to ${d.end||d.to}`
-    ).join('\n');
+    dashaStr = periods.map(d => `  ${d.planet?.name||d.name}: ${d.start||d.from} to ${d.end||d.to}`).join('\n');
   }
+
+  // Mangal
+  const mangalData = data.mangal?.data || {};
+  const hasMangal = mangalData.has_mangal_dosha || false;
+  const mangalDesc = hasMangal ? 'YES — ' + (mangalData.description||'Mangal Dosha present') : 'NO';
 
   // Yogas
   const yogaData = data.yoga?.data || {};
   const yogas = yogaData.yoga_details || yogaData.yogas || [];
-  const activeYogas = yogas.filter(y => y.has_yoga || y.present || y.result)
-    .map(y => `  • ${y.name}: ${y.description || y.result || ''}`)
-    .slice(0, 8).join('\n') || '  No major yogas detected';
+  const activeYogas = yogas.filter(y=>y.has_yoga||y.present).map(y=>`  - ${y.name}: ${y.description||''}`).slice(0,5).join('\n') || '  None detected';
 
-  // Mangal Dosha
-  const mangalData = data.mangal?.data || {};
-  const hasMangal = mangalData.has_mangal_dosha || mangalData.mangal_dosha || false;
-  const mangalDesc = mangalData.description || (hasMangal ? 'Mangal Dosha present' : 'No Mangal Dosha');
+  // Age rules
+  const ageRules = (age !== 'Unknown' && age < 18)
+    ? `USER IS A MINOR — Age: ${age} years. Adult year: ${adultYear}.
+    STRICT RULES: Only discuss studies, talents, personality. NEVER mention marriage, romance, career deadlines. NEVER give any date before ${adultYear}.`
+    : `User is ${age} years old — adult, all topics appropriate.`;
 
-  // Kaal Sarp Dosha
-  const kaalsarpData = data.kaalsarp?.data || {};
-  const hasKaalsarp = kaalsarpData.has_kaal_sarp_dosha || kaalsarpData.kaal_sarp_dosha || false;
-  const kaalsarpType = kaalsarpData.type || kaalsarpData.name || '';
-  const kaalsarpDesc = hasKaalsarp ? `Kaal Sarp Dosha present — Type: ${kaalsarpType}` : 'No Kaal Sarp Dosha';
+  return `You are Jyotish Advisor — world-class Vedic astrologer on JyotishAI.
+Language: ${lang==='hi'?'Hindi (Devanagari) + English mix — warm like family pandit':'Fluent English with Sanskrit terms — authoritative and warm'}.
 
-  return `You are an expert Vedic (Jyotish) astrologer on JyotishAI. Respond in ${lang==='hi'?'Hindi mixed with English (Hinglish), using Devanagari script for Hindi words':'fluent English with Sanskrit/Vedic terms'}.
-
-═══ BIRTH CHART (Lahiri Ayanamsa, Sidereal) ═══
-Name: ${name}
-Lagna (Ascendant): ${lagna}
-Surya Rashi (Sun Sign): ${sunSign}
-Chandra Rashi (Moon Sign): ${moonSign}
-Janma Nakshatra: ${nakshatra} (Pada ${nakshatraPada}, Lord: ${nakshatraLord})
+━━━ BIRTH CHART (Lahiri Ayanamsa) ━━━
+Name: ${name} | Age: ${age}
+Lagna: ${lagna} | Surya: ${sunSign} | Chandra: ${moonSign}
+Nakshatra: ${nakshatra} Pada-${nakshatraPada} (Lord: ${nakshatraLord})
 Tithi: ${tithi}
 
-PLANETARY POSITIONS (Graha Sthiti):
+PLANETARY POSITIONS:
 ${planetStr}
 
-═══ VIMSHOTTARI DASHA ═══
-Current Mahadasha: ${currentDasha}
-Current Antardasha: ${currentAntardasha}
-Mahadasha ends: ${dashaEnd}
+━━━ VIMSHOTTARI DASHA ━━━
+Mahadasha: ${currentDasha} (ends: ${dashaEnd})
+Antardasha: ${currentAntardasha} (ends: ${antardashaEnd})
+Full sequence:
+${dashaStr||'  Loading...'}
 
-All Dasha Periods:
-${dashaStr || '  Data loading...'}
-
-═══ YOGAS IN KUNDLI ═══
+━━━ DOSHAS & YOGAS ━━━
+Mangal Dosha: ${mangalDesc}
+Active Yogas:
 ${activeYogas}
 
-═══ DOSHAS ═══
-Mangal Dosha: ${mangalDesc}
-Kaal Sarp Dosha: ${kaalsarpDesc}
+━━━ ${ageRules} ━━━
 
-═══ VEDIC RULES TO APPLY ═══
-• Lagna = personality, body, overall life
-• Each planet's house position determines its results
-• Planet in own sign (swagrahi) = strong & beneficial
-• Planet in exaltation (uchcha) = maximum power
-• Planet in debilitation (neecha) = weakened
-• Retrograde (Vakri) = intense, karmic, delayed results
-• Nakshatra lord heavily influences mindset & destiny
-• Current Mahadasha planet colors ALL life events right now
-• Rahu in a house obsesses over that house's themes
-• Ketu in a house brings detachment from that house's themes
+━━━ STRICT PREDICTION RULES ━━━
+1. ALWAYS explain WHY using planet+house+dasha
+   WRONG: "Career mein achha samay aayega"
+   RIGHT: "Aapka Guru 10th house mein hai + ${currentDasha} Mahadasha — isliye [specific year] mein career peak hoga"
 
-═══ HOUSE SIGNIFICATIONS ═══
-1: Self, health, personality | 2: Wealth, speech, family
-3: Courage, siblings, communication | 4: Home, mother, comforts
-5: Intelligence, children, past karma | 6: Enemies, health challenges, service
-7: Marriage, partnerships, business | 8: Longevity, occult, sudden events
-9: Luck, dharma, father, guru | 10: Career, reputation, authority
-11: Gains, elder siblings, desires | 12: Losses, foreign travel, spirituality, moksha
+2. BANNED WORDS: may, might, could, possibly, perhaps, you may experience
+   USE: definite statements with astrological proof
 
-═══ RESPONSE RULES ═══
-1. Give SPECIFIC predictions citing actual planet positions, nakshatra, and dasha
-2. ALWAYS mention current Mahadasha and what it means for the person
-3. Example: "Aapki abhi ${currentDasha} Mahadasha chal rahi hai — iska matlab..."
-4. NEVER give generic predictions — always reference the actual chart data
-5. Include ONE practical remedy (mantra/gemstone/charity/fast day)
-6. Keep response 4-6 sentences — powerful and precise
-7. End with a brief uplifting message
-8. Tone: warm, wise, like a trusted family pandit`;
+3. TIMING: Always give specific year/period, never vague
+   WRONG: "Jald hi"  RIGHT: "2027 mein jab ${currentAntardasha} Antardasha ho"
+
+4. Never contradict yourself
+
+5. ONE specific remedy with reason why it works for THIS chart
+
+6. 5-7 sentences max — no filler, no repetition
+
+7. End with chart-specific strength (not generic)
+
+━━━ HOUSES ━━━
+1:Self | 2:Wealth | 3:Courage | 4:Home | 5:Intelligence | 6:Enemies
+7:Marriage | 8:Longevity | 9:Luck | 10:Career | 11:Gains | 12:Spirituality`;
 }
 
 async function sendMsg() {
